@@ -28,14 +28,14 @@ function Home({ userEmail }) {
           {userEmail ? (
             <span className="user-email">Hey {userEmail}</span>
           ) : (
-            <>
+            <div className="top-right">
               <button className="auth-button" onClick={handleSignUp}>
                 Sign Up
               </button>
               <button className="auth-button" onClick={handleLogin}>
                 Log In
               </button>
-            </>
+            </div>
           )}
         </div>
         <div className="title-container">

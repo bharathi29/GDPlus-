@@ -2,64 +2,76 @@ import React, { useState } from "react";
 import { ReactMic } from "react-mic";
 import axios from "axios";
 
-const RASA_LICENSE_KEY = process.env.RASA_PRO_LICENSE;
-
 const Group = () => {
   const [record, setRecord] = useState(false);
   const [discussion, setDiscussion] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [file, setFile] = useState(null);
 
-  const assistants = [
-    { name: "AI Assistant 1", endpoint: "http://localhost:5005/webhooks/rest/webhook" },
-    { name: "AI Assistant 2", endpoint: "http://localhost:5006/webhooks/rest/webhook" },
-    { name: "AI Assistant 3", endpoint: "http://localhost:5007/webhooks/rest/webhook" },
-  ];
+  // Set your Rasa Developer License Key here (ensure you have the key stored in an env variable for security)
+  const RASA_LICENSE_KEY = process.env.RASA_PRO_LICENSE;
+
+  // Speech synthesis function
+  const speak = (text) => {
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = "en-US"; // Specify language if needed
+    speechSynthesis.speak(utterance);
+  };
 
   const onStop = async (recordedBlob) => {
-    setRecord(false);
-    setIsProcessing(true);
+    try {
+      setRecord(false);
+      setIsProcessing(true);
 
-    // Save audio recording
-    const formData = new FormData();
-    formData.append("file", recordedBlob.blob, "recording.wav");
-    await axios.post("http://localhost:4000/api/save-audio", formData);
+      // If a file is provided, process that file
+      if (file) {
+        const fileContent = await readFileContent(file);
 
-    // Transcribe audio
-    const response = await axios.post("http://localhost:4000/api/speech-to-text", formData, {
-      headers: { Authorization: `Bearer ${RASA_LICENSE_KEY}` },
+        // Send file content to Rasa for processing using the Developer Key License
+        const rasaResponse = await axios.post(
+          "http://localhost:5005/webhooks/rest/webhook", 
+          { sender: "user", message: fileContent },
+          {
+            headers: {
+              Authorization: `Bearer ${RASA_LICENSE_KEY}`, // Include the Developer Key License in the Authorization header
+            },
+          }
+        );
+        
+        // Assuming Rasa returns an array of responses
+        if (rasaResponse.data.length > 0) {
+          const botResponse = rasaResponse.data[0].text;
+          setDiscussion((prev) => [...prev, { sender: "Bot", text: botResponse }]);
+          
+          // Speak out the bot's response
+          speak(botResponse);
+        }
+      }
+      setIsProcessing(false);
+    } catch (error) {
+      console.error("Error processing file:", error);
+      setIsProcessing(false);
+    }
+  };
+
+  // Helper function to read file content
+  const readFileContent = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = (error) => reject(error);
+      reader.readAsText(file); // Reads file as text (you can change this depending on the file type)
     });
-    const transcription = response.data.transcription;
+  };
 
-    // Update discussion
-    const humanMessage = { sender: "You", text: transcription };
-    setDiscussion((prev) => [...prev, humanMessage]);
-
-    // Fetch AI responses
-    const aiResponses = await Promise.all(
-      assistants.map(async (assistant) => {
-        const res = await axios.post(assistant.endpoint, { message: transcription });
-        return { sender: assistant.name, text: res.data[0].text };
-      })
-    );
-
-    aiResponses.forEach(async (response) => {
-      setDiscussion((prev) => [...prev, response]);
-
-      // Play AI responses
-      const audioRes = await axios.post("http://localhost:4000/api/text-to-speech", { text: response.text }, {
-        responseType: "blob",
-      });
-      const audioBlob = new Blob([audioRes.data], { type: "audio/mpeg" });
-      const audioUrl = URL.createObjectURL(audioBlob);
-      const audio = new Audio(audioUrl);
-      audio.play();
-    });
-
-    setIsProcessing(false);
+  // Handle file selection
+  const handleFileChange = (event) => {
+    setFile(event.target.files[0]);
   };
 
   return (
     <div>
+      <h1>Group Discussion</h1>
       <div className="discussion">
         {discussion.map((msg, idx) => (
           <div key={idx} className={msg.sender === "You" ? "user-msg" : "ai-msg"}>
@@ -69,16 +81,18 @@ const Group = () => {
         ))}
       </div>
       <div className="audio-controls">
-        <ReactMic
-          record={record}
-          onStop={onStop}
-          mimeType="audio/wav"
-          className="audio-input"
-        />
+        <ReactMic record={record} onStop={onStop} mimeType="audio/wav" className="audio-input" />
         <button onClick={() => setRecord(!record)} disabled={isProcessing}>
           {record ? "Stop Recording" : "Start Recording"}
         </button>
       </div>
+      
+      {/* File Upload Section */}
+      <div className="file-upload">
+        <input type="file" onChange={handleFileChange} />
+        {file && <p>File selected: {file.name}</p>}
+      </div>
+
       {isProcessing && <p>Processing...</p>}
     </div>
   );
