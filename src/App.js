@@ -7,23 +7,24 @@ import Login from "./Login";
 
 function Home({ userEmail }) {
   const navigate = useNavigate();
+  const [groupSize, setGroupSize] = useState(1); // Default group size
 
   const handleProceed = () => {
-    navigate("/group"); // Redirect to the Group.js screen
+    navigate("/group", { state: { groupSize } }); // Pass group size via state
   };
 
   const handleSignUp = () => {
-    navigate("/signup"); // Redirect to the Sign-Up page
+    navigate("/signup");
   };
 
   const handleLogin = () => {
-    navigate("/login"); // Redirect to the Log-In page
+    navigate("/login");
   };
 
   return (
     <div className="App">
       <header className="App-header">
-        <div className="top-left">GD+</div>
+        <div className="top-left">GD++</div>
         <div className="auth-buttons">
           {userEmail ? (
             <span className="user-email">Hey {userEmail}</span>
@@ -44,21 +45,22 @@ function Home({ userEmail }) {
       </header>
 
       <div className="topics-section">
-        <div className="topics-title">Select a Group Discussion Topic</div>
+        <div className="topics-title">Group Discussion Topic</div>
         <div className="topics-container">
-          <div className="topic-card">AI and Machine Learning</div>
-          <div className="topic-card">5G Technology</div>
-          <div className="topic-card">Quantum Computing</div>
           <div className="topic-card">Cloud Computing</div>
-          <div className="topic-card">Cybersecurity</div>
-          <div className="topic-card">Blockchain</div>
         </div>
         <div className="group-size-section">
           <div className="group-size-title">Choose Number of People in the Group</div>
           <div className="group-size-container">
-            <div className="group-size-card">1 Person</div>
-            <div className="group-size-card">2 Persons</div>
-            <div className="group-size-card">3 Persons</div>
+            {[1, 2, 3].map((size) => (
+              <div
+                key={size}
+                className={`group-size-card ${groupSize === size ? "selected" : ""}`}
+                onClick={() => setGroupSize(size)}
+              >
+                {size} Person{size > 1 ? "s" : ""}
+              </div>
+            ))}
           </div>
         </div>
         <div className="proceed-section">
@@ -77,18 +79,9 @@ function App() {
   return (
     <Router>
       <Routes>
-        <Route
-          path="/"
-          element={<Home userEmail={userEmail} />}
-        />
-        <Route
-          path="/signup"
-          element={<Signup onSignUp={(email) => setUserEmail(email)} />}
-        />
-        <Route
-          path="/login"
-          element={<Login onLogIn={(email) => setUserEmail(email)} />}
-        />
+        <Route path="/" element={<Home userEmail={userEmail} />} />
+        <Route path="/signup" element={<Signup onSignUp={(email) => setUserEmail(email)} />} />
+        <Route path="/login" element={<Login onLogIn={(email) => setUserEmail(email)} />} />
         <Route path="/group" element={<Group />} />
       </Routes>
     </Router>
